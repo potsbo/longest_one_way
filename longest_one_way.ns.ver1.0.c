@@ -22,6 +22,7 @@ int SECT_NUM[M][10], SECT[M][2], LINE[M], LINE_CNT=0, JUNC_CNT=0, SECT_CNT=0;
 int list_cnt; 
 int selected_sect, SUM_SECT_LENGTH=0;
 long long int valid_route_cnt=0;
+int SECT_LENGTH[M];
 
 //functions
 int junc_search();
@@ -37,7 +38,6 @@ int printTerminals();
 
 int main(void){
 
-	int BRANCH_CNT[M] = {}, SECT_LENGTH[M];
 	time_start = clock();
 
 	//JUNC[x][] are sections starting from x-th JUNC
@@ -51,6 +51,7 @@ int main(void){
 	printf("\nStation List\n");
 	fscanf( fin, "%s", LINE_NAME[LINE_CNT]);
 
+	int BRANCH_CNT[M] = {};
 	//loading and printing JUNCs data
 	while ( strcmp( data, "乗換") != 0 ){
 		int determinant = 0; //decision, length or next line , if 0 -> next line, not 0 -> length
@@ -114,7 +115,6 @@ int main(void){
 
 	fclose(fin);
 	//loading process END
-
 	//analitics process
 	//counting branch, asigning junc_sub <- ??
 	analyzeBranch( BRANCH_CNT );
@@ -122,15 +122,6 @@ int main(void){
 	//making and printing TERMINAL_LIST
 	int TERMINAL_LIST[M];
 	int TERMINAL_LIST_CNT = printTerminals( BRANCH_CNT, TERMINAL_LIST );
-	/* printf("\n\nTERMINAL LIST:"); */
-	/* for (int i = 0; i < JUNC_CNT; i++) { */
-	/* 	if (BRANCH_CNT[i] == 1) { */
-	/* 		TERMINAL_LIST[TERMINAL_LIST_CNT] = i; */
-	/* 		printf("\n%d %s %d", TERMINAL_LIST_CNT, JUNC_NAME[ TERMINAL_LIST[TERMINAL_LIST_CNT] ], i); */
-	/* 		TERMINAL_LIST_CNT++; */
-	/* 	} */
-	/* } */
-	/* printf("\nTERMINAL_LIST_CNT = %d",TERMINAL_LIST_CNT); */
 
 	//printing JUNCs
 	printf("\n\nJUNC LIST:\n");
