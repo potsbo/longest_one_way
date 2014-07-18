@@ -23,6 +23,9 @@ int list_cnt;
 int selected_sect, SUM_SECT_LENGTH=0;
 long long int valid_route_cnt=0;
 int SECT_LENGTH[M];
+//JUNC[x][] are sections starting from x-th JUNC
+//SECT[][0] is one side, SECT[][1] is the other
+//BRANCH_CNT[x] is the numbers of SECTs starting x-th JUNC
 
 //functions
 int junc_search();
@@ -35,88 +38,29 @@ void archiveData();
 void backToPrevious();
 void analyzeBranch();
 int printTerminals();
+void loadJunc();
+void loadTransfer();
+void setNewSect();
+void printJunc();
+void printSect();
 
 int main(void){
 
 	time_start = clock();
 
-	//JUNC[x][] are sections starting from x-th JUNC
-	//SECT[][0] is one side, SECT[][1] is the other
-	//BRANCH_CNT[x] is the numbers of SECTs starting x-th JUNC
-
 	//data input process
 	getRouteData();
 	char* DEST_FILE = setDestFile();
+	//end data input process
 
-	printf("\nStation List\n");
-	fscanf( fin, "%s", LINE_NAME[LINE_CNT]);
-
-	int BRANCH_CNT[M] = {};
-	//loading and printing JUNCs data
-	while ( strcmp( data, "乗換") != 0 ){
-		int determinant = 0; //decision, length or next line , if 0 -> next line, not 0 -> length
-		//next line
-		printf( "%s: ", LINE_NAME[LINE_CNT] );
-
-		//each JUNC
-		while(1){ 
-			//on one line
-			fscanf( fin, "%s", data );
-			int junc_sub = junc_search( JUNC_NAME, JUNC_CNT );//naming a junction number
-
-			//setting a new JUNC
-			//if this junc loaded before, do nothing
-			JUNC_CNT = setNewJunc(junc_sub, JUNC_CNT, JUNC_NAME, data, BRANCH_CNT);
-
-			//setting a new SECT
-			if ( determinant > 0) SECT[SECT_CNT-1][1] = junc_sub;
-
-			printf( "%s ", JUNC_NAME[junc_sub] );
-
-			fscanf( fin, "%s", data );//the length (or the line name)
-
-			if ( (determinant = atoi(data)) > 0 ) {
-				SECT_LENGTH[SECT_CNT] = determinant;
-				SECT[SECT_CNT][0] = junc_sub;
-				LINE[SECT_CNT] = LINE_CNT;
-				SECT_CNT++;
-			}else{
-				break;
-			}
-		} 
-
-		LINE_CNT++;
-		strcpy( LINE_NAME[LINE_CNT], data);
-
-		printf("\n");
-	} 
-
-	printf( "%s: ", LINE_NAME[LINE_CNT] );
-	fscanf( fin, "%s", data );
-
-	//printing station list
-	while ( strcmp( data, "END") != 0 ) {
-		int junc_sub = junc_search( JUNC_NAME, JUNC_CNT );
-
-		printf( "%s-", JUNC_NAME[junc_sub] );
-		SECT[SECT_CNT][0] = junc_sub;
-		SECT_LENGTH[SECT_CNT] = 0;
-		LINE[SECT_CNT] = LINE_CNT;
-
-		fscanf( fin, "%s", data);
-		junc_sub = junc_search( JUNC_NAME, JUNC_CNT );
-		printf( "%d:%s ",JUNC_CNT, JUNC_NAME[junc_sub] );
-		SECT[SECT_CNT][1] = junc_sub;
-
-		SECT_CNT++;
-
-		fscanf( fin, "%s", data );
-	}
-
+	//loading process
+	loadJunc(); 	//loading and printing JUNCs data except transfers
+	loadTransfer(); //loading and printing transfers data
 	fclose(fin);
-	//loading process END
+	//end loading process
+
 	//analitics process
-	//counting branch, asigning junc_sub <- ??
+	int BRANCH_CNT[M] = {};
 	analyzeBranch( BRANCH_CNT );
 
 	//making and printing TERMINAL_LIST
@@ -124,41 +68,10 @@ int main(void){
 	int TERMINAL_LIST_CNT = printTerminals( BRANCH_CNT, TERMINAL_LIST );
 
 	//printing JUNCs
-	printf("\n\nJUNC LIST:\n");
-	for (int i = 0; i < JUNC_CNT; i++ ) {
-
-		//printing one JUNC
-		printf( "%d %s (BRANCH COUNT:%d BRANCHES:", i, JUNC_NAME[i], BRANCH_CNT[i] );
-
-		//printing opposite JUNCs
-		for (int j = 0; j < BRANCH_CNT[i]; j++ ) {
-			selected_sect = SECT_NUM[i][j];
-			if ( i == SECT[selected_sect][0] ) {
-				printf( " %s", JUNC_NAME[ SECT[selected_sect][1] ]);
-			} else {
-				printf( " %s", JUNC_NAME[ SECT[selected_sect][0] ]);
-			}
-		}
-
-		printf( ")\n");
-	}
-	printf("JUNC_COUNT = %d", JUNC_CNT);
+	printJunc(BRANCH_CNT);
 
 	//printing SECTs
-	printf("\n\nSECT LIST:\n");
-	for (int i = 0; i < SECT_CNT; i++ ) {
-		printf( "%d ", i );
-		printf( "%s-%s ", JUNC_NAME[SECT[i][0]], JUNC_NAME[SECT[i][1]] );
-		printf( "[%s] ", LINE_NAME[LINE[i]]);
-		printf( "%5.1fkm\n", SECT_LENGTH[i]*0.1 );
-		SUM_SECT_LENGTH += SECT_LENGTH[i];
-	}
-	printf( "SECT_COUNT = %d\n", SECT_CNT );
-	printf( "SUM_SECT_LENTGH = %5.1fkm\n", SUM_SECT_LENGTH * 0.1 );
-
-	time_mark[0] = clock();
-	printf("time:%d",time_mark[0] - time_start);
-
+	printSect();
 
 	//calculation prosess
 	int sect_temp_route[M], sect_record_route[M], junc_temp_route[M], junc_record_route[M];
@@ -169,7 +82,7 @@ int main(void){
 		int junc_status[M], branch_status[M][M];
 
 		//calculate routes starting from a terminal
-		printf("\n\nA New Terminal:%d\n",present_terminal);
+		printf("\n\nNew Terminal:%d\n",present_terminal);
 		//setting temp data
 		present_junc = TERMINAL_LIST[present_terminal];//setting the first junction
 		junc_status[present_junc] = 1;//this means i-th junction is traveled
@@ -233,7 +146,7 @@ int main(void){
 					//renewing the record
 					junc_record_route[list_cnt] = junc_temp_route[list_cnt];
 					time_now = clock();
-					printf("\nlongest route updated: %5.1fkm - checking %d of %d TERMINAL(s) - %dms passed"
+					printf("\nRecord updated: %5.1fkm - checking %d of %d TERMINAL(s) - %dms passed"
 							,record_length*0.1 ,present_terminal,TERMINAL_LIST_CNT, time_now-time_start);
 					printf("\nvalid_route_cnt = %lld", valid_route_cnt );
 
@@ -285,10 +198,9 @@ int junc_search( char JUNC_NAME[M][N], int JUNC_CNT ){
 	return i;
 }
 
-int setNewJunc(int junc_sub, int JUNC_CNT, char JUNC_NAME[M][N],char data[N], int BRANCH_CNT[M]){
+int setNewJunc(int junc_sub, int JUNC_CNT, char JUNC_NAME[M][N],char data[N]){
 	if ( junc_sub == JUNC_CNT /*no matching junc*/) {
 		strcpy( JUNC_NAME[JUNC_CNT], data);
-		/* BRANCH_CNT[JUNC_CNT] = 0; */
 		JUNC_CNT++;
 	}
 	return JUNC_CNT;
@@ -403,4 +315,112 @@ int printTerminals( int BRANCH_CNT[M], int TERMINAL_LIST[M] ){
 	}
 	printf("\nTERMINAL_LIST_CNT = %d",TERMINAL_LIST_CNT);
 	return TERMINAL_LIST_CNT;
+}
+
+void loadJunc(){
+	printf("\nStation List\n");
+	fscanf( fin, "%s", data );//the length (or the line name)
+
+	while ( strcmp( data, "乗換") != 0 ){
+		int determinant = 0; //decision, length or next line , if 0 -> next line, not 0 -> length
+		strcpy( LINE_NAME[LINE_CNT], data);
+		//next line
+		printf( "%s: ", LINE_NAME[LINE_CNT] );
+
+		//each JUNC
+		while(1){ 
+			//on one line
+			fscanf( fin, "%s", data );
+			int junc_sub = junc_search( JUNC_NAME, JUNC_CNT );//naming a junction number
+
+			//setting a new JUNC
+			//if this junc loaded before, do nothing
+			JUNC_CNT = setNewJunc(junc_sub, JUNC_CNT, JUNC_NAME, data);
+
+			//setting a new SECT
+			if ( determinant > 0) SECT[SECT_CNT-1][1] = junc_sub;
+
+			printf( "%s ", JUNC_NAME[junc_sub] );
+
+			fscanf( fin, "%s", data );//the length (or the line name)
+
+			if ( (determinant = atoi(data)) > 0 ) {
+				setNewSect(determinant,junc_sub);
+				SECT_CNT++;
+			}else{
+				break;
+			}
+		} 
+
+		LINE_CNT++;
+		printf("\n");
+	} 
+	strcpy(LINE_NAME[LINE_CNT],data);
+}
+
+void loadTransfer(){
+	printf( "%s: ", LINE_NAME[LINE_CNT] );
+	fscanf( fin, "%s", data );
+
+	while ( strcmp( data, "END") != 0 ) {
+		int junc_sub = junc_search( JUNC_NAME, JUNC_CNT );
+		setNewSect(0,junc_sub);
+
+		printf( "%s", JUNC_NAME[junc_sub] );
+
+		fscanf( fin, "%s", data);
+		junc_sub = junc_search( JUNC_NAME, JUNC_CNT );
+		printf( ":%s ", JUNC_NAME[junc_sub] );
+		SECT[SECT_CNT][1] = junc_sub;
+
+		SECT_CNT++;
+
+		fscanf( fin, "%s", data );
+	}
+
+}
+
+void setNewSect(int length, int junc_sub){
+		SECT_LENGTH[SECT_CNT] = length;
+		SECT[SECT_CNT][0] = junc_sub;
+		LINE[SECT_CNT] = LINE_CNT;
+}
+
+void printJunc(int BRANCH_CNT[M]){
+	printf("\n\nJUNC LIST:\n");
+	for (int i = 0; i < JUNC_CNT; i++ ) {
+
+		//printing one JUNC
+		printf( "%d %s (BRANCH COUNT:%d BRANCHES:", i, JUNC_NAME[i], BRANCH_CNT[i] );
+
+		//printing opposite JUNCs
+		for (int j = 0; j < BRANCH_CNT[i]; j++ ) {
+			selected_sect = SECT_NUM[i][j];
+			if ( i == SECT[selected_sect][0] ) {
+				printf( " %s", JUNC_NAME[ SECT[selected_sect][1] ]);
+			} else {
+				printf( " %s", JUNC_NAME[ SECT[selected_sect][0] ]);
+			}
+		}
+
+		printf( ")\n");
+	}
+	printf("JUNC_COUNT = %d", JUNC_CNT);
+
+}
+
+void printSect(){
+	printf("\n\nSECT LIST:\n");
+	for (int i = 0; i < SECT_CNT; i++ ) {
+		printf( "%d ", i );
+		printf( "%s-%s ", JUNC_NAME[SECT[i][0]], JUNC_NAME[SECT[i][1]] );
+		printf( "[%s] ", LINE_NAME[LINE[i]]);
+		printf( "%5.1fkm\n", SECT_LENGTH[i]*0.1 );
+		SUM_SECT_LENGTH += SECT_LENGTH[i];
+	}
+	printf( "SECT_COUNT = %d\n", SECT_CNT );
+	printf( "SUM_SECT_LENTGH = %5.1fkm\n", SUM_SECT_LENGTH * 0.1 );
+
+	time_mark[0] = clock();
+	printf("time:%d",time_mark[0] - time_start);
 }
