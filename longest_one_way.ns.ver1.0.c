@@ -15,24 +15,28 @@
 #define N 100   //string size
 
 FILE *fin, *fout;
-char DEST_FILE[N], LINE_NAME[N][N], JUNC_NAME[M][N], data[N]={"0"}, DATA_FILE[N];
+char LINE_NAME[N][N], JUNC_NAME[M][N], data[N]={"0"}, DATA_FILE[N];
+/* char DEST_FILE[N];  */
 int time_start, time_now, time_mark[M];
 int SECT_NUM[M][10], SECT[M][2], LINE[M], LINE_CNT=0, JUNC_CNT=0, SECT_CNT=0;
 int list_cnt; 
-int junc_sub, selected_sect, SUM_SECT_LENGTH=0;
+int selected_sect, SUM_SECT_LENGTH=0;
+long long int valid_route_cnt=0;
 
-int junc_search( char data[N], char JUNC_NAME[M][N], int JUNC_CNT );
-int setNewJunc(int junc_sub, int JUNC_CNT, char JUNC_NAME[M][N],char data[N], int BRANCH_CNT[M]);
-void printRecord( int time_mark[M], int time_start, int record_length, long long int valid_route_cnt);
-void printRecordRoute( char JUNC_NAME[M][N], int junc_record_route[M], char LINE_NAME[N][N], int LINE[M],int sect_record_route[M]);
+//functions
+int junc_search();
+int setNewJunc();
+void printRecord();
+void printRecordRoute();
 void getRouteData();
-void setDestFile();
+char* setDestFile();
 void archiveData();
 void backToPrevious();
+void analyzeBranch();
+int printTerminals();
 
 int main(void){
 
-	//junction:junc, sect:section
 	int BRANCH_CNT[M] = {}, SECT_LENGTH[M];
 	time_start = clock();
 
@@ -42,7 +46,7 @@ int main(void){
 
 	//data input process
 	getRouteData();
-	setDestFile();
+	char* DEST_FILE = setDestFile();
 
 	printf("\nStation List\n");
 	fscanf( fin, "%s", LINE_NAME[LINE_CNT]);
@@ -57,7 +61,7 @@ int main(void){
 		while(1){ 
 			//on one line
 			fscanf( fin, "%s", data );
-			junc_sub = junc_search( data, JUNC_NAME, JUNC_CNT );//naming a junction number
+			int junc_sub = junc_search( JUNC_NAME, JUNC_CNT );//naming a junction number
 
 			//setting a new JUNC
 			//if this junc loaded before, do nothing
@@ -74,10 +78,10 @@ int main(void){
 				SECT_LENGTH[SECT_CNT] = determinant;
 				SECT[SECT_CNT][0] = junc_sub;
 				LINE[SECT_CNT] = LINE_CNT;
-
 				SECT_CNT++;
+			}else{
+				break;
 			}
-			if (determinant == 0) break;
 		} 
 
 		LINE_CNT++;
@@ -86,12 +90,12 @@ int main(void){
 		printf("\n");
 	} 
 
-	printf( "%s: ", LINE_NAME[LINE_CNT] );//printf( "%s: ", "乗換" );
+	printf( "%s: ", LINE_NAME[LINE_CNT] );
 	fscanf( fin, "%s", data );
 
 	//printing station list
 	while ( strcmp( data, "END") != 0 ) {
-		junc_sub = junc_search( data, JUNC_NAME, JUNC_CNT );
+		int junc_sub = junc_search( JUNC_NAME, JUNC_CNT );
 
 		printf( "%s-", JUNC_NAME[junc_sub] );
 		SECT[SECT_CNT][0] = junc_sub;
@@ -99,7 +103,7 @@ int main(void){
 		LINE[SECT_CNT] = LINE_CNT;
 
 		fscanf( fin, "%s", data);
-		junc_sub = junc_search( data, JUNC_NAME, JUNC_CNT );
+		junc_sub = junc_search( JUNC_NAME, JUNC_CNT );
 		printf( "%d:%s ",JUNC_CNT, JUNC_NAME[junc_sub] );
 		SECT[SECT_CNT][1] = junc_sub;
 
@@ -112,27 +116,21 @@ int main(void){
 	//loading process END
 
 	//analitics process
-	int TERMINAL_LIST[M], TERMINAL_LIST_CNT= 0;
-
 	//counting branch, asigning junc_sub <- ??
-	for (int i = 0; i < SECT_CNT; i++ ) {
-		for (int j = 0; j < 2; j++ ) {
-			int junc_sub = SECT[i][j];
-			SECT_NUM[junc_sub][ BRANCH_CNT[junc_sub] ] = i;
-			BRANCH_CNT[junc_sub]++;
-		}
-	}
+	analyzeBranch( BRANCH_CNT );
 
 	//making and printing TERMINAL_LIST
-	printf("\n\nTERMINAL LIST:");
-	for (int i = 0; i < JUNC_CNT; i++) {
-		if (BRANCH_CNT[i] == 1) {
-			TERMINAL_LIST[TERMINAL_LIST_CNT] = i;
-			printf("\n%d %s %d", TERMINAL_LIST_CNT, JUNC_NAME[ TERMINAL_LIST[TERMINAL_LIST_CNT] ], i);
-			TERMINAL_LIST_CNT++;
-		}
-	}
-	printf("\nTERMINAL_LIST_CNT = %d",TERMINAL_LIST_CNT);
+	int TERMINAL_LIST[M];
+	int TERMINAL_LIST_CNT = printTerminals( BRANCH_CNT, TERMINAL_LIST );
+	/* printf("\n\nTERMINAL LIST:"); */
+	/* for (int i = 0; i < JUNC_CNT; i++) { */
+	/* 	if (BRANCH_CNT[i] == 1) { */
+	/* 		TERMINAL_LIST[TERMINAL_LIST_CNT] = i; */
+	/* 		printf("\n%d %s %d", TERMINAL_LIST_CNT, JUNC_NAME[ TERMINAL_LIST[TERMINAL_LIST_CNT] ], i); */
+	/* 		TERMINAL_LIST_CNT++; */
+	/* 	} */
+	/* } */
+	/* printf("\nTERMINAL_LIST_CNT = %d",TERMINAL_LIST_CNT); */
 
 	//printing JUNCs
 	printf("\n\nJUNC LIST:\n");
@@ -168,22 +166,19 @@ int main(void){
 	printf( "SUM_SECT_LENTGH = %5.1fkm\n", SUM_SECT_LENGTH * 0.1 );
 
 	time_mark[0] = clock();
-	printf("%d",time_mark[0] - time_start);
-
+	printf("time:%d",time_mark[0] - time_start);
 
 
 	//calculation prosess
-	int junc_status[M], branch_status[M][M];
 	int sect_temp_route[M], sect_record_route[M], junc_temp_route[M], junc_record_route[M];
 	int record_length=0, temp_route_length=0, temp_list_cnt=0;
-	int previous_junc, present_junc, next_junc;
-	int previous_length=0;
-	long long int valid_route_cnt=0;
 
 	for ( int present_terminal = 0; present_terminal < TERMINAL_LIST_CNT; present_terminal++ ) {
+		int previous_junc, present_junc, next_junc;
+		int junc_status[M], branch_status[M][M];
 
 		//calculate routes starting from a terminal
-		printf("\nA New Terminal:%d\n",present_terminal);
+		printf("\n\nA New Terminal:%d\n",present_terminal);
 		//setting temp data
 		present_junc = TERMINAL_LIST[present_terminal];//setting the first junction
 		junc_status[present_junc] = 1;//this means i-th junction is traveled
@@ -192,9 +187,7 @@ int main(void){
 		previous_junc = present_junc;
 
 		while( present_junc != junc_temp_route[0] || previous_junc == present_junc){
-			//setting previous_junc
-
-			//setting j (indicator) and searching next junc
+			//setting branchNum (indicator) and searching next junc
 			int presentBranchCNT = BRANCH_CNT[present_junc];
 			int branchNum;
 			for ( branchNum= 0; branchNum < presentBranchCNT; branchNum++ ) {
@@ -215,6 +208,7 @@ int main(void){
 			}
 
 			if ( branchNum < presentBranchCNT && junc_status[present_junc] < 2 ) {
+				int previous_length=0;
 				//updating status
 				junc_status[next_junc]++;
 				branch_status[present_junc][branchNum] = 1;
@@ -253,7 +247,7 @@ int main(void){
 					printf("\nvalid_route_cnt = %lld", valid_route_cnt );
 
 					//archiving data
-					archiveData(present_terminal, junc_record_route, sect_record_route, record_length, valid_route_cnt);
+					archiveData(present_terminal, junc_record_route, sect_record_route, record_length, DEST_FILE);
 				}
 
 				//checking if coming present_junc for the first time
@@ -290,7 +284,7 @@ int main(void){
 
 
 //finding same junction, avoiding duplicate
-int junc_search( char data[N], char JUNC_NAME[M][N], int JUNC_CNT ){
+int junc_search( char JUNC_NAME[M][N], int JUNC_CNT ){
 	int i;
 
 	for ( i = 0; i < JUNC_CNT; i++ ) {
@@ -347,13 +341,15 @@ void getRouteData(){
 }
 
 
-void setDestFile(){
+char* setDestFile(){
+	static char DEST_FILE[N];
 	printf("Input destination file:");
 	scanf("%s", DEST_FILE);
 	strcpy(DEST_FILE,"test");
+	return DEST_FILE;
 }
 
-void archiveData(int present_terminal, int junc_record_route[M], int sect_record_route[M], int record_length, long long int valid_route_cnt){
+void archiveData(int present_terminal, int junc_record_route[M], int sect_record_route[M], int record_length, char DEST_FILE[N]){
 	if ( (fout = fopen( DEST_FILE, "w")) == NULL ) {
 		printf("\nOutput file not created\n");
 		exit(1);
@@ -391,4 +387,29 @@ void backToPrevious(int junc_status[M],int previous_junc, int  present_junc, int
 				present_junc = junc_temp_route[temp_list_cnt];
 				previous_junc = junc_temp_route[temp_list_cnt - 1];
 				temp_route_length -= SECT_LENGTH[ sect_temp_route[temp_list_cnt] ];
+}
+
+
+void analyzeBranch(int BRANCH_CNT[M]){
+	for (int i = 0; i < SECT_CNT; i++ ) {
+		for (int j = 0; j < 2; j++ ) {
+			int junc_sub = SECT[i][j];
+			SECT_NUM[junc_sub][ BRANCH_CNT[junc_sub] ] = i;
+			BRANCH_CNT[junc_sub]++;
+		}
+	}
+}
+ 
+int printTerminals( int BRANCH_CNT[M], int TERMINAL_LIST[M] ){
+	printf("\n\nTERMINAL LIST:");
+	int TERMINAL_LIST_CNT = 0;
+	for (int i = 0; i < JUNC_CNT; i++) {
+		if (BRANCH_CNT[i] == 1) {
+			TERMINAL_LIST[TERMINAL_LIST_CNT] = i;
+			printf("\n%d %s %d", TERMINAL_LIST_CNT, JUNC_NAME[ TERMINAL_LIST[TERMINAL_LIST_CNT] ], i);
+			TERMINAL_LIST_CNT++;
+		}
+	}
+	printf("\nTERMINAL_LIST_CNT = %d",TERMINAL_LIST_CNT);
+	return TERMINAL_LIST_CNT;
 }
