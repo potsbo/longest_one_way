@@ -15,14 +15,17 @@
 #define N 100   //string size
 
 FILE *fin, *fout;
-char LINE_NAME[N][N], JUNC_NAME[M][N], data[N]={"0"}, DATA_FILE[N];
-/* char DEST_FILE[N];  */
-int time_start, time_now, time_mark[M];
+char LINE_NAME[N][N], JUNC_NAME[M][N], DATA_FILE[N];
+char data[N]={"0"}; //no need to be global
+int time_start, time_mark[M];
 int SECT_NUM[M][10], SECT[M][2], LINE[M], LINE_CNT=0, JUNC_CNT=0, SECT_CNT=0;
-int list_cnt; 
-int selected_sect, SUM_SECT_LENGTH=0;
-long long int valid_route_cnt=0;
+int list_cnt; //no need to be global
+int selected_sect, SUM_SECT_LENGTH = 0;
+long long int valid_route_cnt = 0;//no need to be global
 int SECT_LENGTH[M];
+int sect_record_route[M],junc_record_route[M], record_length = 0; 
+int temp_route_length = 0, previous_junc, present_junc, next_junc;
+int TERMINAL_LIST_CNT;
 //JUNC[x][] are sections starting from x-th JUNC
 //SECT[][0] is one side, SECT[][1] is the other
 //BRANCH_CNT[x] is the numbers of SECTs starting x-th JUNC
@@ -35,7 +38,7 @@ void printRecordRoute();
 void getRouteData();
 char* setDestFile();
 void archiveData();
-void backToPrevious();
+int backToPrevious();
 void analyzeBranch();
 int printTerminals();
 void loadJunc();
@@ -43,42 +46,46 @@ void loadTransfer();
 void setNewSect();
 void printJunc();
 void printSect();
+void renewRecord();
+void renewRoute();
+void recordData();
 
 int main(void){
 
 	time_start = clock();
 
 	//data input process
-	getRouteData();
+	getRouteData();//opening fin
 	char* DEST_FILE = setDestFile();
-	//end data input process
+	//END data input process
+
 
 	//loading process
 	loadJunc(); 	//loading and printing JUNCs data except transfers
 	loadTransfer(); //loading and printing transfers data
 	fclose(fin);
-	//end loading process
+	//END loading process
 
-	//analitics process
+
+	//analizing and printing process
 	int BRANCH_CNT[M] = {};
 	analyzeBranch( BRANCH_CNT );
 
 	//making and printing TERMINAL_LIST
 	int TERMINAL_LIST[M];
-	int TERMINAL_LIST_CNT = printTerminals( BRANCH_CNT, TERMINAL_LIST );
+	TERMINAL_LIST_CNT = printTerminals( BRANCH_CNT, TERMINAL_LIST );
 
 	//printing JUNCs
 	printJunc(BRANCH_CNT);
 
 	//printing SECTs
 	printSect();
+	//END analizing and printing process
+
 
 	//calculation prosess
-	int sect_temp_route[M], sect_record_route[M], junc_temp_route[M], junc_record_route[M];
-	int record_length=0, temp_route_length=0, temp_list_cnt=0;
-
 	for ( int present_terminal = 0; present_terminal < TERMINAL_LIST_CNT; present_terminal++ ) {
-		int previous_junc, present_junc, next_junc;
+		int sect_temp_route[M], junc_temp_route[M], temp_list_cnt=0;
 		int junc_status[M], branch_status[M][M];
 
 		//calculate routes starting from a terminal
@@ -94,17 +101,12 @@ int main(void){
 			//setting branchNum (indicator) and searching next junc
 			int presentBranchCNT = BRANCH_CNT[present_junc];
 			int branchNum;
-			for ( branchNum= 0; branchNum < presentBranchCNT; branchNum++ ) {
+			for ( branchNum = 0; branchNum < presentBranchCNT; branchNum++ ) {
 				//searching a free branch
 				if ( branch_status[present_junc][branchNum] == 0 ) {
-
 					//setting next_junc
 					selected_sect = SECT_NUM[present_junc][branchNum];
-					if ( present_junc == SECT[selected_sect][0] ) {
-						next_junc = SECT[selected_sect][1];
-					} else {
-						next_junc = SECT[selected_sect][0];
-					}
+					next_junc = SECT[selected_sect][present_junc == SECT[selected_sect][0]];
 
 					if ( next_junc != previous_junc ) break;
 				}
@@ -112,7 +114,7 @@ int main(void){
 			}
 
 			if ( branchNum < presentBranchCNT && junc_status[present_junc] < 2 ) {
-				int previous_length=0;
+				int previous_length = 0;
 				//updating status
 				junc_status[next_junc]++;
 				branch_status[present_junc][branchNum] = 1;
@@ -133,25 +135,7 @@ int main(void){
 
 				//checking if recordable
 				if ( temp_route_length > record_length ) {
-					//saving the length, sections, junctions of the temp route
-					record_length = temp_route_length;
-					list_cnt = temp_list_cnt;
-
-					//renewing record SECTs and JUNCs
-					for (int i = 0; i < list_cnt; i++ ) {
-						sect_record_route[i] = sect_temp_route[i];
-						junc_record_route[i] = junc_temp_route[i];
-					}
-
-					//renewing the record
-					junc_record_route[list_cnt] = junc_temp_route[list_cnt];
-					time_now = clock();
-					printf("\nRecord updated: %5.1fkm - checking %d of %d TERMINAL(s) - %dms passed"
-							,record_length*0.1 ,present_terminal,TERMINAL_LIST_CNT, time_now-time_start);
-					printf("\nvalid_route_cnt = %lld", valid_route_cnt );
-
-					//archiving data
-					archiveData(present_terminal, junc_record_route, sect_record_route, record_length, DEST_FILE);
+					recordData(DEST_FILE, temp_list_cnt, sect_temp_route, junc_temp_route, present_terminal);
 				}
 
 				//checking if coming present_junc for the first time
@@ -163,18 +147,14 @@ int main(void){
 				}
 
 				//backing to the previous JUNC
-				/* backToPrevious(); */
-				junc_status[present_junc]--;
-				temp_list_cnt--;
-				present_junc = junc_temp_route[temp_list_cnt];
-				previous_junc = junc_temp_route[temp_list_cnt - 1];
-				temp_route_length -= SECT_LENGTH[ sect_temp_route[temp_list_cnt] ];
+				temp_list_cnt = backToPrevious(junc_status, temp_list_cnt, junc_temp_route, SECT_LENGTH, sect_temp_route);
 
 			}
 
 		} 
 
 	}
+	//END calculation process
 
 	//print the result of calculation
 	printRecordRoute(JUNC_NAME, junc_record_route, LINE_NAME, LINE, sect_record_route);
@@ -252,7 +232,7 @@ char* setDestFile(){
 	return DEST_FILE;
 }
 
-void archiveData(int present_terminal, int junc_record_route[M], int sect_record_route[M], int record_length, char DEST_FILE[N]){
+void archiveData(int present_terminal, char DEST_FILE[N]){
 	if ( (fout = fopen( DEST_FILE, "w")) == NULL ) {
 		printf("\nOutput file not created\n");
 		exit(1);
@@ -284,12 +264,13 @@ void archiveData(int present_terminal, int junc_record_route[M], int sect_record
 	fclose(fout);
 }
 
-void backToPrevious(int junc_status[M],int previous_junc, int  present_junc, int temp_list_cnt, int junc_temp_route[M], int temp_route_length, int SECT_LENGTH[M], int sect_temp_route[M]){
+int backToPrevious(int junc_status[M], int temp_list_cnt, int junc_temp_route[M], int SECT_LENGTH[M], int sect_temp_route[M]){
 				junc_status[present_junc]--;
 				temp_list_cnt--;
 				present_junc = junc_temp_route[temp_list_cnt];
 				previous_junc = junc_temp_route[temp_list_cnt - 1];
 				temp_route_length -= SECT_LENGTH[ sect_temp_route[temp_list_cnt] ];
+				return temp_list_cnt;
 }
 
 
@@ -396,11 +377,7 @@ void printJunc(int BRANCH_CNT[M]){
 		//printing opposite JUNCs
 		for (int j = 0; j < BRANCH_CNT[i]; j++ ) {
 			selected_sect = SECT_NUM[i][j];
-			if ( i == SECT[selected_sect][0] ) {
-				printf( " %s", JUNC_NAME[ SECT[selected_sect][1] ]);
-			} else {
-				printf( " %s", JUNC_NAME[ SECT[selected_sect][0] ]);
-			}
+			printf( " %s", JUNC_NAME[ SECT[selected_sect][i == SECT[selected_sect][0]] ]);
 		}
 
 		printf( ")\n");
@@ -423,4 +400,36 @@ void printSect(){
 
 	time_mark[0] = clock();
 	printf("time:%d",time_mark[0] - time_start);
+}
+
+void renewRecord( int junc_temp_route[M], int record_length, int present_terminal, int TERMINAL_LIST_CNT){
+	junc_record_route[list_cnt] = junc_temp_route[list_cnt];
+	int time_now = clock();
+	printf("Record updated: %5.1fkm - checking %d of %d TERMINAL(s) - %dms passed"
+			,record_length*0.1 ,present_terminal,TERMINAL_LIST_CNT, time_now-time_start);
+	printf("\nvalid_route_cnt = %lld\n", valid_route_cnt );
+
+}
+
+void renewRoute(int sect_temp_route[M], int junc_temp_route[M]){
+	for (int i = 0; i < list_cnt; i++ ) {
+		sect_record_route[i] = sect_temp_route[i];
+		junc_record_route[i] = junc_temp_route[i];
+	}
+}
+
+void recordData(char DEST_FILE[N], int temp_list_cnt, int sect_temp_route[M], int junc_temp_route[M], int present_terminal){
+					//saving the length, sections, junctions of the temp route
+					record_length = temp_route_length;
+					list_cnt = temp_list_cnt;
+
+					//renewing record SECTs and JUNCs
+					renewRoute( sect_temp_route, junc_temp_route );
+
+					//renewing the record
+					renewRecord( junc_temp_route, record_length, present_terminal, TERMINAL_LIST_CNT);
+
+					//archiving data
+					archiveData( present_terminal, DEST_FILE );
+
 }
