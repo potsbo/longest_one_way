@@ -51,6 +51,7 @@ void resetBranchStatus();
 int getOpposit();
 int bruteForceTerminal();
 
+	int record_list_cnt = 0;
 int main(void){
 	int devFlag = 1;
 
@@ -83,9 +84,8 @@ int main(void){
 	//END analizing and printing process
 
 	//calculation prosess
-	int record_list_cnt = 0;
 	for ( int present_terminal = 0; present_terminal < TERMINAL_LIST_CNT; present_terminal++ ) {
-		record_list_cnt = bruteForceTerminal(present_terminal,record_list_cnt, TERMINAL_LIST, BRANCH_CNT);
+		bruteForceTerminal(present_terminal, TERMINAL_LIST, BRANCH_CNT);
 		//archiving data
 		archiveData( present_terminal, DEST_FILE, record_list_cnt, valid_route_cnt );
 	}
@@ -372,7 +372,7 @@ int getOpposit(int juncNum, int branchNum){
 	}
 }
 
-int bruteForceTerminal(int present_terminal,int record_list_cnt, int TERMINAL_LIST[M],int BRANCH_CNT[M]){
+int bruteForceTerminal(int present_terminal, int TERMINAL_LIST[M],int BRANCH_CNT[M]){
 
 		int sect_temp_route[M], junc_temp_route[M], temp_list_cnt = 0, junc_status[M], branch_status[M][M];
 
