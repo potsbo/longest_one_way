@@ -52,10 +52,11 @@ int getOpposit();
 int bruteForceTerminal();
 
 int main(void){
+	int devFlag = 1;
 
 	/* data input process */
-	char* ROUTE_DATA_FILE = getRouteData();//opening fin
-	char* DEST_FILE = setDestFile();
+	char* ROUTE_DATA_FILE = getRouteData(devFlag);//opening fin
+	char* DEST_FILE = setDestFile(devFlag);
 	/* END data input process */
 
 	/* loading process */
@@ -129,11 +130,13 @@ void printRecord( int record_length, long long int valid_route_cnt){
 	printf("valid_route_cnt = %lld\n", valid_route_cnt);
 }
 
-char* getRouteData(){
+char* getRouteData(int devFlag){
 	static char ROUTE_DATA_FILE[N];
 	printf("Input source data:");
 	scanf("%s", ROUTE_DATA_FILE);
-	strcpy(ROUTE_DATA_FILE,"route/fukuoka_city.txt");//for dev
+	if(devFlag == 1){
+		strcpy(ROUTE_DATA_FILE,"route/fukuoka_city.txt");//for dev
+	}
 
 	//checking the file
 	if ( (fin = fopen( ROUTE_DATA_FILE, "r")) == NULL ) {
@@ -144,11 +147,13 @@ char* getRouteData(){
 	return ROUTE_DATA_FILE;
 }
 
-char* setDestFile(){
+char* setDestFile(int devFlag){
 	static char DEST_FILE[N];
 	printf("Input destination file:");
 	scanf("%s", DEST_FILE);
-	strcpy(DEST_FILE,"test");//for dev
+	if(devFlag == 1){
+		strcpy(DEST_FILE,"test");//for dev
+	}
 	return DEST_FILE;
 }
 
