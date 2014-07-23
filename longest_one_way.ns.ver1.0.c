@@ -85,7 +85,9 @@ int main(void){
 	//calculation prosess
 	int record_list_cnt = 0;
 	for ( int present_terminal = 0; present_terminal < TERMINAL_LIST_CNT; present_terminal++ ) {
-		record_list_cnt = bruteForceTerminal(present_terminal,record_list_cnt, TERMINAL_LIST, BRANCH_CNT, DEST_FILE);
+		record_list_cnt = bruteForceTerminal(present_terminal,record_list_cnt, TERMINAL_LIST, BRANCH_CNT);
+		//archiving data
+		archiveData( present_terminal, DEST_FILE, record_list_cnt, valid_route_cnt );
 	}
 	//END calculation process
 
@@ -336,7 +338,7 @@ void renewRoute(int sect_temp_route[M], int junc_temp_route[M], int record_list_
 	}
 }
 
-int recordData(char DEST_FILE[N], int temp_list_cnt, int sect_temp_route[M], int junc_temp_route[M], int present_terminal, int record_list_cnt, long long int valid_route_cnt){
+int recordData( int temp_list_cnt, int sect_temp_route[M], int junc_temp_route[M], int present_terminal, int record_list_cnt, long long int valid_route_cnt){
 	//saving the length, sections, junctions of the temp route
 	record_length = temp_route_length;
 	record_list_cnt = temp_list_cnt;
@@ -347,8 +349,6 @@ int recordData(char DEST_FILE[N], int temp_list_cnt, int sect_temp_route[M], int
 	//renewing the record
 	renewRecord( junc_temp_route, record_length, present_terminal, record_list_cnt, valid_route_cnt);
 
-	//archiving data
-	archiveData( present_terminal, DEST_FILE, record_list_cnt, valid_route_cnt );
 	return record_list_cnt;
 }
 
@@ -372,7 +372,7 @@ int getOpposit(int juncNum, int branchNum){
 	}
 }
 
-int bruteForceTerminal(int present_terminal,int record_list_cnt, int TERMINAL_LIST[M],int BRANCH_CNT[M], char DEST_FILE[N]){
+int bruteForceTerminal(int present_terminal,int record_list_cnt, int TERMINAL_LIST[M],int BRANCH_CNT[M]){
 
 		int sect_temp_route[M], junc_temp_route[M], temp_list_cnt = 0, junc_status[M], branch_status[M][M];
 
@@ -421,7 +421,7 @@ int bruteForceTerminal(int present_terminal,int record_list_cnt, int TERMINAL_LI
 
 				//checking if recordable
 				if ( temp_route_length > record_length ){
-					record_list_cnt = recordData(DEST_FILE, temp_list_cnt, sect_temp_route, junc_temp_route, present_terminal, record_list_cnt, valid_route_cnt);
+					record_list_cnt = recordData( temp_list_cnt, sect_temp_route, junc_temp_route, present_terminal, record_list_cnt, valid_route_cnt);
 				}
 
 				if (junc_status[present_junc] == 1 ) { //checking if coming present_junc for the first time
