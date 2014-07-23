@@ -28,12 +28,12 @@ long long int valid_route_cnt = 0;//no need to be global
 //BRANCH_CNT[x] is the numbers of SECTs starting x-th JUNC
 
 //functions
+char* getRouteData();
+char* setDestFile();
 int junc_search();
 void setNewJunc();
 void printRecord();
 void printRecordRoute();
-void getRouteData();
-char* setDestFile();
 void archiveData();
 int backToPrevious();
 void analyzeBranch();
@@ -54,11 +54,12 @@ int bruteForceTerminal();
 int main(void){
 
 	/* data input process */
-	getRouteData();//opening fin
+	char* ROUTE_DATA_FILE = getRouteData();//opening fin
 	char* DEST_FILE = setDestFile();
 	/* END data input process */
 
 	/* loading process */
+	fin = fopen( ROUTE_DATA_FILE, "r");
 	loadJunc(); 	//loading and printing JUNCs data except transfers
 	loadTransfer(); //loading and printing transfers data
 	fclose(fin);
@@ -83,7 +84,7 @@ int main(void){
 	//calculation prosess
 	int record_list_cnt = 0;
 	for ( int present_terminal = 0; present_terminal < TERMINAL_LIST_CNT; present_terminal++ ) {
-			bruteForceTerminal(present_terminal,record_list_cnt, TERMINAL_LIST, BRANCH_CNT, DEST_FILE);
+		record_list_cnt = bruteForceTerminal(present_terminal,record_list_cnt, TERMINAL_LIST, BRANCH_CNT, DEST_FILE);
 	}
 	//END calculation process
 
@@ -128,8 +129,8 @@ void printRecord( int record_length, long long int valid_route_cnt){
 	printf("valid_route_cnt = %lld\n", valid_route_cnt);
 }
 
-void getRouteData(){
-	char ROUTE_DATA_FILE[N];
+char* getRouteData(){
+	static char ROUTE_DATA_FILE[N];
 	printf("Input source data:");
 	scanf("%s", ROUTE_DATA_FILE);
 	strcpy(ROUTE_DATA_FILE,"route/fukuoka_city.txt");//for dev
@@ -139,6 +140,8 @@ void getRouteData(){
 		printf("\nFile not found\n");
 		exit(1);
 	}
+	fclose(fin);
+	return ROUTE_DATA_FILE;
 }
 
 char* setDestFile(){
