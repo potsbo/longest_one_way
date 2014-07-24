@@ -32,15 +32,14 @@ char* getRouteData();
 char* setDestFile();
 void loadJunc(), loadTransfer();
 int printJunc(), printSect(), printTerminal();
+void setNewJunc(), setNewSect();
 int juncSearch();
-void setNewJunc();
 void countBranch();
 void printRecord();
 void printRoute();
-void renewRecord(), renewRecordRoute();
+void printRecord(), renewRecordRoute();
 void archiveData();
 int backToPrevious();
-void setNewSect();
 int recordData();
 void updateTempRoute();
 void resetBranchStatus();
@@ -89,8 +88,8 @@ int main(void){
 	//END calculation process
 
 	//print the result of calculation
-	printRoute(record_list_cnt, junc_record_route, sect_record_route);
-	printRecord( record_length);
+	printRoute( record_list_cnt, junc_record_route, sect_record_route);
+	printRecord("Record Length: ", record_length);
 
 	return 0;
 }
@@ -230,10 +229,6 @@ void printRoute(int list_cnt, int junc_route[M], int sect_route[M]){
 	printf("%s\n", JUNC_NAME[junc_route[list_cnt] ] );
 }
 
-void printRecord( int record_length){
-	printf("Record Length: %5.1fkm\n", record_length * 0.1);
-	printf("valid_route_cnt = %lld\n", valid_route_cnt);
-}
 
 void archiveData(int present_terminal, char DEST_FILE[N], int record_list_cnt){
 	if ( (fout = fopen( DEST_FILE, "w")) == NULL ) {
@@ -320,12 +315,12 @@ int printSect(){
 	return 0;
 }
 
-void renewRecord( int junc_temp_route[M], int record_length){
-	printf("Record updated: %5.1fkm" ,record_length*0.1);
-	printf("\nvalid_route_cnt = %lld\n", valid_route_cnt );
+void printRecord(char lengthMessage[M], int record_length){
+	printf("%s%5.1fkm - ",lengthMessage ,record_length*0.1);
+	printf("valid_route_cnt = %lld\n", valid_route_cnt );
 }
 
-void renewRecordRoute(int sect_temp_route[M], int junc_temp_route[M], int temp_list_cnt){
+void printRecordRoute(int sect_temp_route[M], int junc_temp_route[M], int temp_list_cnt){
 	for (int i = 0; i < temp_list_cnt+1; i++ ) {
 		sect_record_route[i] = sect_temp_route[i];
 		junc_record_route[i] = junc_temp_route[i];
@@ -338,10 +333,10 @@ int recordData( int temp_list_cnt, int sect_temp_route[M], int junc_temp_route[M
 	record_list_cnt = temp_list_cnt;
 
 	//renewing record SECTs and JUNCs
-	renewRecordRoute( sect_temp_route, junc_temp_route, temp_list_cnt);
+	printRecordRoute( sect_temp_route, junc_temp_route, temp_list_cnt);
 
 	//renewing the record
-	renewRecord( junc_temp_route, record_length);
+	printRecord("Record updated: ", record_length);
 
 	return record_list_cnt;
 }
