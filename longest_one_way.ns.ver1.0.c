@@ -17,7 +17,6 @@
 FILE *fin, *fout;
 char LINE_NAME[N][N], JUNC_NAME[M][N], DATA_FILE[N];
 int SECT_NUM[M][10], SECT[M][2], LINE[M], LINE_CNT=0, JUNC_CNT=0, SECT_CNT=0;
-int SUM_SECT_LENGTH = 0;
 int SECT_LENGTH[M];
 int sect_record_route[M], junc_record_route[M], record_length = 0; 
 int temp_route_length = 0, previous_junc, present_junc, next_junc;
@@ -31,21 +30,20 @@ int record_list_cnt = 0;
 //functions
 char* getRouteData();
 char* setDestFile();
+void loadJunc(), loadTransfer();
 int juncSearch();
 void setNewJunc();
+void countBranch();
 void printRecord();
 void printRecordRoute();
 void archiveData();
 int backToPrevious();
-void countBranch();
 int printTerminals();
-void loadJunc();
-void loadTransfer();
 void setNewSect();
 void printJunc();
 void printSect();
 void renewRecord();
-void renewRoute();
+void renewRecordRoute();
 int recordData();
 void updateTempRoute();
 void resetBranchStatus();
@@ -201,12 +199,27 @@ void loadTransfer(){
 	}
 }
 
-//finding same junction, avoiding duplicate
 int juncSearch(char data[N]){
 	for (int i = 0; i < JUNC_CNT; i++ ) {
 		if( strcmp( data, JUNC_NAME[i] ) == 0 ) return i;
 	}
 	return -1;
+}
+
+void setNewSect(int juncSub, int length){
+	SECT_LENGTH[SECT_CNT] = length;
+	SECT[SECT_CNT][0] = juncSub;
+	LINE[SECT_CNT] = LINE_CNT;
+}
+
+void countBranch(int BRANCH_CNT[M]){
+	for (int i = 0; i < SECT_CNT; i++ ) {
+		for (int j = 0; j < 2; j++ ) {
+			int juncSub = SECT[i][j];
+			SECT_NUM[juncSub][ BRANCH_CNT[juncSub] ] = i;
+			BRANCH_CNT[juncSub]++;
+		}
+	}
 }
 
 void printRecordRoute(int record_list_cnt){
@@ -264,34 +277,17 @@ int backToPrevious(int junc_status[M], int temp_list_cnt, int junc_temp_route[M]
 	return temp_list_cnt;
 }
 
-
-void countBranch(int BRANCH_CNT[M]){
-	for (int i = 0; i < SECT_CNT; i++ ) {
-		for (int j = 0; j < 2; j++ ) {
-			int juncSub = SECT[i][j];
-			SECT_NUM[juncSub][ BRANCH_CNT[juncSub] ] = i;
-			BRANCH_CNT[juncSub]++;
-		}
-	}
-}
-
 int printTerminals( int BRANCH_CNT[M], int TERMINAL_LIST[M] ){
 	printf("\n\nTERMINAL LIST:");
 	for (int i = 0; i < JUNC_CNT; i++) {
 		if (BRANCH_CNT[i] == 1) {
 			TERMINAL_LIST[TERMINAL_LIST_CNT] = i;
-			printf("\n%d %s %d", TERMINAL_LIST_CNT, JUNC_NAME[ TERMINAL_LIST[TERMINAL_LIST_CNT] ], i);
+			printf("\n%2d %s %d", TERMINAL_LIST_CNT, JUNC_NAME[i], i);
 			TERMINAL_LIST_CNT++;
 		}
 	}
 	printf("\nTERMINAL_LIST_CNT = %d",TERMINAL_LIST_CNT);
 	return 0;
-}
-
-void setNewSect(int juncSub, int length){
-	SECT_LENGTH[SECT_CNT] = length;
-	SECT[SECT_CNT][0] = juncSub;
-	LINE[SECT_CNT] = LINE_CNT;
 }
 
 void printJunc(int BRANCH_CNT[M]){
@@ -303,15 +299,15 @@ void printJunc(int BRANCH_CNT[M]){
 
 		//printing connected JUNCs
 		for (int j = 0; j < BRANCH_CNT[i]; j++ ) {
-			printf( " %s", JUNC_NAME[ getOpposit(i,j)]);
+			printf( " %s", JUNC_NAME[ getOpposit(i,j) ]);
 		}
-
 		printf( ")\n");
 	}
 	printf("JUNC_COUNT = %d", JUNC_CNT);
 }
 
 void printSect(){
+	int SUM_SECT_LENGTH = 0;
 	printf("\n\nSECT LIST:\n");
 	for (int i = 0; i < SECT_CNT; i++ ) {
 		printf( "%d ", i );
@@ -324,30 +320,29 @@ void printSect(){
 	printf( "SUM_SECT_LENTGH = %5.1fkm\n", SUM_SECT_LENGTH * 0.1 );
 }
 
-void renewRecord( int junc_temp_route[M], int record_length, int present_terminal, int record_list_cnt, long long int valid_route_cnt){
-	junc_record_route[record_list_cnt] = junc_temp_route[record_list_cnt];
+void renewRecord( int junc_temp_route[M], int record_length, int present_terminal){
 	printf("Record updated: %5.1fkm - checking %d of %d TERMINAL(s)"
 			,record_length*0.1 ,present_terminal,TERMINAL_LIST_CNT);
 	printf("\nvalid_route_cnt = %lld\n", valid_route_cnt );
 }
 
-void renewRoute(int sect_temp_route[M], int junc_temp_route[M], int record_list_cnt){
-	for (int i = 0; i < record_list_cnt; i++ ) {
+void renewRecordRoute(int sect_temp_route[M], int junc_temp_route[M], int temp_list_cnt){
+	for (int i = 0; i < temp_list_cnt+1; i++ ) {
 		sect_record_route[i] = sect_temp_route[i];
 		junc_record_route[i] = junc_temp_route[i];
 	}
 }
 
-int recordData( int temp_list_cnt, int sect_temp_route[M], int junc_temp_route[M], int present_terminal, int record_list_cnt, long long int valid_route_cnt){
+int recordData( int temp_list_cnt, int sect_temp_route[M], int junc_temp_route[M], int present_terminal){
 	//saving the length, sections, junctions of the temp route
 	record_length = temp_route_length;
 	record_list_cnt = temp_list_cnt;
 
 	//renewing record SECTs and JUNCs
-	renewRoute( sect_temp_route, junc_temp_route, record_list_cnt );
+	renewRecordRoute( sect_temp_route, junc_temp_route, temp_list_cnt);
 
 	//renewing the record
-	renewRecord( junc_temp_route, record_length, present_terminal, record_list_cnt, valid_route_cnt);
+	renewRecord( junc_temp_route, record_length, present_terminal);
 
 	return record_list_cnt;
 }
@@ -373,67 +368,65 @@ int getOpposit(int juncNum, int branchNum){
 }
 
 int bruteForceTerminal(int present_terminal, int TERMINAL_LIST[M],int BRANCH_CNT[M]){
+	int sect_temp_route[M], junc_temp_route[M], temp_list_cnt = 0, junc_status[M], branch_status[M][M];
 
-		int sect_temp_route[M], junc_temp_route[M], temp_list_cnt = 0, junc_status[M], branch_status[M][M];
+	//calculate routes starting from a terminal
+	printf("\n\nNew Terminal:%d\n", present_terminal);
+	//setting temp data
+	present_junc = TERMINAL_LIST[present_terminal];//setting the first junction
+	junc_status[present_junc] = 1;//this means i-th junction is traveled
+	junc_temp_route[temp_list_cnt] = present_junc;
 
-		//calculate routes starting from a terminal
-		printf("\n\nNew Terminal:%d\n", present_terminal);
-		//setting temp data
-		present_junc = TERMINAL_LIST[present_terminal];//setting the first junction
-		junc_status[present_junc] = 1;//this means i-th junction is traveled
-		junc_temp_route[temp_list_cnt] = present_junc;
+	previous_junc = present_junc;
 
-		previous_junc = present_junc;
+	while( present_junc != junc_temp_route[0] || previous_junc == present_junc){
+		//setting branchNum (indicator) and searching next junc
+		int presentBranchCNT = BRANCH_CNT[present_junc], branchNum;
 
-		while( present_junc != junc_temp_route[0] || previous_junc == present_junc){
-			//setting branchNum (indicator) and searching next junc
-			int presentBranchCNT = BRANCH_CNT[present_junc], branchNum;
-
-			for ( branchNum = 0; branchNum < presentBranchCNT; branchNum++ ) {
-				//searching a free branch
-				if ( branch_status[present_junc][branchNum] == 0 ) {
-					//setting next_junc
-					next_junc = getOpposit(present_junc, branchNum);
-					if ( next_junc != previous_junc ) break;
-				}
+		for ( branchNum = 0; branchNum < presentBranchCNT; branchNum++ ) {
+			//searching a free branch
+			if ( branch_status[present_junc][branchNum] == 0 ) {
+				//setting next_junc
+				next_junc = getOpposit(present_junc, branchNum);
+				if ( next_junc != previous_junc ) break;
 			}
-
-			if ( branchNum < presentBranchCNT && junc_status[present_junc] < 2 ) {
-				//able to make this route longer
-				int previous_length = 0;
-				//updating status
-				junc_status[next_junc]++;
-				branch_status[present_junc][branchNum] = 1;
-
-				//updating temp data
-				updateTempRoute(temp_list_cnt, branchNum, sect_temp_route, junc_temp_route);
-
-				previous_length = SECT_LENGTH[SECT_NUM[present_junc][branchNum]];
-				temp_route_length += previous_length;
-
-				temp_list_cnt++;
-				previous_junc = present_junc;
-				present_junc = next_junc;
-
-			} else {
-				//end of a route
-				valid_route_cnt++;
-
-				//checking if recordable
-				if ( temp_route_length > record_length ){
-					record_list_cnt = recordData( temp_list_cnt, sect_temp_route, junc_temp_route, present_terminal, record_list_cnt, valid_route_cnt);
-				}
-
-				if (junc_status[present_junc] == 1 ) { //checking if coming present_junc for the first time
-					resetBranchStatus(BRANCH_CNT, branch_status); //resetting branch_status starting from present_junc
-				}
-
-				//backing to the previous JUNC
-				temp_list_cnt = backToPrevious(junc_status, temp_list_cnt, junc_temp_route, sect_temp_route);
-			}
-
 		}
 
+		if ( branchNum < presentBranchCNT && junc_status[present_junc] < 2 ) {
+			//able to make this route longer
+			int previous_length = 0;
+			//updating status
+			junc_status[next_junc]++;
+			branch_status[present_junc][branchNum] = 1;
+
+			//updating temp data
+			updateTempRoute(temp_list_cnt, branchNum, sect_temp_route, junc_temp_route);
+
+			previous_length = SECT_LENGTH[SECT_NUM[present_junc][branchNum]];
+			temp_route_length += previous_length;
+
+			temp_list_cnt++;
+			previous_junc = present_junc;
+			present_junc = next_junc;
+
+		} else {
+			//end of a route
+			valid_route_cnt++;
+
+			//checking if recordable
+			if ( temp_route_length > record_length ){
+				record_list_cnt = recordData( temp_list_cnt, sect_temp_route, junc_temp_route, present_terminal);
+			}
+
+			if (junc_status[present_junc] == 1 ) { //checking if coming present_junc for the first time
+				resetBranchStatus(BRANCH_CNT, branch_status); //resetting branch_status starting from present_junc
+			}
+
+			//backing to the previous JUNC
+			temp_list_cnt = backToPrevious(junc_status, temp_list_cnt, junc_temp_route, sect_temp_route);
+		}
+
+	}
 
 	return record_list_cnt;
 }
