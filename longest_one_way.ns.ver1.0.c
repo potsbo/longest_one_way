@@ -31,7 +31,7 @@ int record_list_cnt = 0;
 //functions
 char* getRouteData();
 char* setDestFile();
-int junc_search();
+int juncSearch();
 void setNewJunc();
 void printRecord();
 void printRecordRoute();
@@ -102,7 +102,7 @@ int main(void){
 
 char* getRouteData(int devFlag){
 	static char ROUTE_DATA_FILE[N];
-	printf("Input source data:");
+	printf("Input route data:");
 	scanf("%s", ROUTE_DATA_FILE);
 	if(devFlag == 1){
 		strcpy(ROUTE_DATA_FILE,"route/fukuoka_city.txt");//for dev
@@ -127,19 +127,86 @@ char* setDestFile(int devFlag){
 	return DEST_FILE;
 }
 
+void loadJunc(){
+	printf("\nStation List");
+	char data[N];
+	fscanf( fin, "%s", data );//the length (or the line name)
+
+	//each line
+	while ( strcmp( data, "乗換") != 0 ){
+		strcpy( LINE_NAME[LINE_CNT], data);
+		//next line
+		printf( "\n%s: ", LINE_NAME[LINE_CNT] );
+		LINE_CNT++;
+
+		//each JUNC
+		while(1){ 
+			static int determinant = 0; //decision, length or next line , if 0 -> next line, not 0 -> length
+			//on one line
+			fscanf( fin, "%s", data );
+			int juncSub = juncSearch(data);//naming a junction number
+
+			//setting a new JUNC
+			//if this junc loaded before, do nothing
+			if ( juncSub == -1/*no matching junc*/) {
+				strcpy( JUNC_NAME[JUNC_CNT], data);
+				juncSub = JUNC_CNT;
+				JUNC_CNT++;
+			}
+
+			//setting a new SECT
+			if ( determinant > 0) SECT[SECT_CNT-1][1] = juncSub;
+
+			printf( "%s ", JUNC_NAME[juncSub] );
+
+			fscanf( fin, "%s", data );//the length (or the line name)
+
+			if ( (determinant = atoi(data)) > 0 ) {
+				setNewSect(juncSub,determinant);
+				SECT_CNT++;
+			}else{
+				break;
+			}
+		} 
+	} 
+}
+
+void loadTransfer(){
+	strcpy(LINE_NAME[LINE_CNT],"乗換");
+	printf("乗換:");
+	char data[N];
+	fscanf( fin, "%s", data );
+
+	while ( strcmp( data, "END") != 0 ) {
+		int juncSub = juncSearch(data);
+		if(juncSub == -1){
+			printf("Error: no matching junc");
+			exit(1);
+		}
+		setNewSect(juncSub,0);
+
+		printf( "%s", JUNC_NAME[juncSub] );
+
+		fscanf( fin, "%s", data);
+		juncSub = juncSearch(data);
+		if(juncSub == -1){
+			printf("Error: no matching junc");
+			exit(1);
+		}
+		printf( ":%s ", JUNC_NAME[juncSub] );
+		SECT[SECT_CNT][1] = juncSub;
+		SECT_CNT++;
+
+		fscanf( fin, "%s", data );
+	}
+}
+
 //finding same junction, avoiding duplicate
-int junc_search(char data[N]){
+int juncSearch(char data[N]){
 	for (int i = 0; i < JUNC_CNT; i++ ) {
 		if( strcmp( data, JUNC_NAME[i] ) == 0 ) return i;
 	}
 	return -1;
-}
-
-void setNewJunc(int junc_sub, char data[N]){
-	if ( junc_sub == JUNC_CNT /*no matching junc*/) {
-		strcpy( JUNC_NAME[JUNC_CNT], data);
-		JUNC_CNT++;
-	}
 }
 
 void printRecordRoute(int record_list_cnt){
@@ -201,9 +268,9 @@ int backToPrevious(int junc_status[M], int temp_list_cnt, int junc_temp_route[M]
 void countBranch(int BRANCH_CNT[M]){
 	for (int i = 0; i < SECT_CNT; i++ ) {
 		for (int j = 0; j < 2; j++ ) {
-			int junc_sub = SECT[i][j];
-			SECT_NUM[junc_sub][ BRANCH_CNT[junc_sub] ] = i;
-			BRANCH_CNT[junc_sub]++;
+			int juncSub = SECT[i][j];
+			SECT_NUM[juncSub][ BRANCH_CNT[juncSub] ] = i;
+			BRANCH_CNT[juncSub]++;
 		}
 	}
 }
@@ -221,85 +288,9 @@ int printTerminals( int BRANCH_CNT[M], int TERMINAL_LIST[M] ){
 	return 0;
 }
 
-void loadJunc(){
-	printf("\nStation List\n");
-	char data[N];
-	fscanf( fin, "%s", data );//the length (or the line name)
-
-	while ( strcmp( data, "乗換") != 0 ){
-		int determinant = 0; //decision, length or next line , if 0 -> next line, not 0 -> length
-		strcpy( LINE_NAME[LINE_CNT], data);
-		//next line
-		printf( "%s: ", LINE_NAME[LINE_CNT] );
-
-		//each JUNC
-		while(1){ 
-			//on one line
-			fscanf( fin, "%s", data );
-			int junc_sub = junc_search(data);//naming a junction number
-
-			//setting a new JUNC
-			//if this junc loaded before, do nothing
-			if ( junc_sub == -1/*no matching junc*/) {
-				strcpy( JUNC_NAME[JUNC_CNT], data);
-				junc_sub = JUNC_CNT;
-				JUNC_CNT++;
-			}
-
-			//setting a new SECT
-			if ( determinant > 0) SECT[SECT_CNT-1][1] = junc_sub;
-
-			printf( "%s ", JUNC_NAME[junc_sub] );
-
-			fscanf( fin, "%s", data );//the length (or the line name)
-
-			if ( (determinant = atoi(data)) > 0 ) {
-				setNewSect(determinant,junc_sub);
-				SECT_CNT++;
-			}else{
-				break;
-			}
-		} 
-
-		LINE_CNT++;
-		printf("\n");
-	} 
-	strcpy(LINE_NAME[LINE_CNT],data);
-}
-
-void loadTransfer(){
-	printf( "%s: ", LINE_NAME[LINE_CNT] );
-	char data[N];
-	fscanf( fin, "%s", data );
-
-	while ( strcmp( data, "END") != 0 ) {
-		int junc_sub = junc_search(data);
-		if(junc_sub == -1){
-			printf("Error: no matching junc");
-			exit(1);
-		}
-		setNewSect(0,junc_sub);
-
-		printf( "%s", JUNC_NAME[junc_sub] );
-
-		fscanf( fin, "%s", data);
-		junc_sub = junc_search(data);
-		if(junc_sub == -1){
-			printf("Error: no matching junc");
-			exit(1);
-		}
-		printf( ":%s ", JUNC_NAME[junc_sub] );
-		SECT[SECT_CNT][1] = junc_sub;
-
-		SECT_CNT++;
-
-		fscanf( fin, "%s", data );
-	}
-}
-
-void setNewSect(int length, int junc_sub){
+void setNewSect(int juncSub, int length){
 	SECT_LENGTH[SECT_CNT] = length;
-	SECT[SECT_CNT][0] = junc_sub;
+	SECT[SECT_CNT][0] = juncSub;
 	LINE[SECT_CNT] = LINE_CNT;
 }
 
