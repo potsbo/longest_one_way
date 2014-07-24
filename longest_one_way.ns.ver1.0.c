@@ -79,14 +79,13 @@ int main(void){
 	//END analizing and printing process
 
 	//calculation prosess
-	/* for ( int present_terminal = 0; present_terminal < TERMINAL_LIST_CNT; present_terminal++ ) { */
-	/* 	int startJunc = TERMINAL_LIST[present_terminal]; */
-	/* 	printf("\n\nNew Terminal:%d\n", present_terminal); */
-	/* 	bruteFroceSearch(startJunc, BRANCH_CNT); */
-	/* 	//archiving data */
-	/* 	archiveData( present_terminal, DEST_FILE, record_list_cnt ); */
-	/* } */
-	bruteFroceSearch(1, BRANCH_CNT);
+	for ( int present_terminal = 0; present_terminal < TERMINAL_LIST_CNT; present_terminal++ ) {
+		int startJunc = TERMINAL_LIST[present_terminal];
+		printf("\n\nNew Terminal:%d\n", present_terminal);
+		bruteFroceSearch(startJunc, BRANCH_CNT);
+		//archiving data
+		archiveData( present_terminal, DEST_FILE, record_list_cnt );
+	}
 	//END calculation process
 
 	//print the result of calculation
@@ -377,7 +376,7 @@ int bruteFroceSearch(int startJunc, int BRANCH_CNT[M]){
 
 	previous_junc = present_junc;
 
-	while( present_junc != junc_temp_route[0] || previous_junc == present_junc || temp_list_cnt > 0){
+	while( previous_junc == present_junc || temp_list_cnt > 0){
 		//setting branchNum (indicator) and searching next junc
 		int presentBranchCNT = BRANCH_CNT[present_junc], branchNum;
 
