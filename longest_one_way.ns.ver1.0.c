@@ -20,6 +20,7 @@ int SECT_LENGTH[M], SECT_NUM[M][10], SECT[M][2], LINE[M], LINE_CNT=0, JUNC_CNT=0
 int sectRecordRoute[M], juncRecordRoute[M], recordLength = 0, recordListCnt = 0;
 int TERMINAL_LIST_CNT;
 long long int validRouteCnt = 0;//no need to be global
+int BRANCH_CNT[M] = {};
 //JUNC[x][] are sections starting from x-th JUNC
 //SECT[][0] is one side, SECT[][1] is the other
 //BRANCH_CNT[x] is the numbers of SECTs starting x-th JUNC
@@ -32,9 +33,7 @@ int printJunc(), printSect(), printTerminal();
 void setNewJunc(), setNewSect();
 int juncSearch();
 void countBranch();
-void printRecord();
-void printRoute();
-void printRecord(), renewRecordRoute();
+void printRoute(), printRecord(), renewRecordRoute();
 void archiveData();
 int recordData();
 void updateTempRoute();
@@ -58,7 +57,6 @@ int main(void){
 	/* END loading process */
 
 	/* analizing and printing process */
-	int BRANCH_CNT[M] = {};
 	countBranch( BRANCH_CNT );
 
 	//making and printing TERMINAL_LIST
@@ -71,10 +69,10 @@ int main(void){
 
 	/* printing SECTs */
 	printSect();
-	//END analizing and printing process
+	/* END printing SECTs */
 
 	//calculation prosess
-	for ( int presentTerminal = 0; presentTerminal < TERMINAL_LIST_CNT; presentTerminal++ ) {
+	for ( int presentTerminal = 0; presentTerminal < TERMINAL_LIST_CNT; presentTerminal++ ){
 		int startJunc = TERMINAL_LIST[presentTerminal];
 		printf("\n\nNew Terminal:%d\n", presentTerminal);
 		bruteFroceSearch( startJunc, BRANCH_CNT);
@@ -97,7 +95,7 @@ char* getRouteData(int devFlag){
 	printf("Input route data:");
 	scanf("%s", ROUTE_DATA_FILE);
 	if(devFlag == 1){
-		strcpy(ROUTE_DATA_FILE,"route/JR_kyushu.txt");//for dev
+		strcpy( ROUTE_DATA_FILE, "route/JR_kyushu.txt");//for dev
 	}
 
 	//checking the file
@@ -111,7 +109,7 @@ char* getRouteData(int devFlag){
 
 char* setDestFile(int devFlag){
 	static char DEST_FILE[N];
-	printf("Input destination file:");
+	printf("Input output file:");
 	scanf("%s", DEST_FILE);
 	if(devFlag == 1){
 		strcpy(DEST_FILE,"test");//for dev
@@ -122,7 +120,7 @@ char* setDestFile(int devFlag){
 void loadJunc(){
 	printf("\nStation List");
 	char data[N];
-	fscanf( fin, "%s", data );//the length (or the line name)
+	fscanf( fin, "%s", data);//length (or line name)
 
 	//each line
 	while ( strcmp( data, "乗換") != 0 ){
